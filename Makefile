@@ -18,6 +18,11 @@ build: ## build the image
 interactive: ## launch the container and start an interactive bash shell
 	docker run -ti $(VOLUMES) $(PROJECT_NAME) /bin/bash
 
+clean: ## cleans up reports/, data/, notebooks/
+	find . -name "*.zip" -type f -delete
+	find . -name "*.duckdb" -type f -delete
+	find . -name "*.html" -type f -delete
+
 faers_ascii_2022q2.zip:
 	docker run $(VOLUMES) $(PROJECT_NAME) wget -P data https://fis.fda.gov/content/Exports/faers_ascii_2022q2.zip
 
