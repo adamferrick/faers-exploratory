@@ -2,6 +2,7 @@ FROM rocker/r-ver:4.2.1
 
 # install system dependencies
 RUN apt-get update && apt-get install -y \
+    wget \
     libxml2-dev \
     libcurl4-openssl-dev \
     libssl-dev \

@@ -17,3 +17,6 @@ build: ## build the image
 
 interactive: ## launch the container and start an interactive bash shell
 	docker run -ti $(VOLUMES) $(PROJECT_NAME) /bin/bash
+
+faers_ascii_2022q2.zip:
+	docker run $(VOLUMES) $(PROJECT_NAME) wget -P data https://fis.fda.gov/content/Exports/faers_ascii_2022q2.zip
