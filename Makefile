@@ -20,3 +20,6 @@ interactive: ## launch the container and start an interactive bash shell
 
 faers_ascii_2022q2.zip:
 	docker run $(VOLUMES) $(PROJECT_NAME) wget -P data https://fis.fda.gov/content/Exports/faers_ascii_2022q2.zip
+
+faers_22q2.duckdb: faers_ascii_2022q2.zip
+	docker run $(VOLUMES) $(PROJECT_NAME) Rscript src/create_database.R
