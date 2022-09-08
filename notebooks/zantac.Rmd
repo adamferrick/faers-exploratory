@@ -1,0 +1,204 @@
+---
+title: "Zantac"
+output: html_document
+---
+
+
+In this notebook, I do some exploration of the most frequently occurring drug in the dataset: Zantac.
+
+
+
+## Preliminary steps
+
+
+Load packages
+
+```{r}
+library(tidyverse)
+library(DBI)
+```
+
+
+
+Connect to the database
+
+```{r}
+con <- dbConnect(duckdb::duckdb(), dbdir = "../data/faers_22q2.duckdb", read_only = TRUE)
+```
+
+## Analysis
+
+
+Which events had the most medications involved?
+
+```{r}
+dbGetQuery(
+  con,
+  "SELECT
+    primaryid,
+    COUNT(*) AS num_medications
+  FROM drug
+  GROUP BY primaryid
+  ORDER BY COUNT(*) DESC"
+) %>%
+  as_tibble()
+```
+
+
+
+Which are the drugs that have the most reports?
+
+```{r}
+dbGetQuery(
+  con,
+  "SELECT
+    drugname,
+    COUNT(DISTINCT primaryid) AS num_events
+  FROM drug
+  GROUP BY drugname
+  ORDER BY COUNT(DISTINCT primaryid) DESC"
+) %>%
+  as_tibble()
+```
+
+The drug involved in the most reports is Zantac, and it is the highest by more than a factor of 2.
+
+
+
+Take a look at the reac table.
+
+```{r}
+dbGetQuery(
+  con,
+  "SELECT * FROM reac"
+) %>%
+  as_tibble()
+```
+
+
+
+
+Further examine Zantac, the drug that had the most reports in Q2 2022.
+
+```{r}
+zantac_reactions <- dbGetQuery(
+  con,
+  "SELECT
+    reac.pt,
+    COUNT(DISTINCT drug.primaryid) AS num_reactions,
+    COUNT(DISTINCT drug.primaryid) * 1.0 / (SELECT COUNT(DISTINCT primaryid) FROM drug WHERE drugname = 'ZANTAC') AS share_of_total_reactions
+  FROM drug INNER JOIN reac ON (drug.primaryid = reac.primaryid)
+  WHERE drug.drugname = 'ZANTAC'
+  GROUP BY reac.pt
+  ORDER BY COUNT(DISTINCT drug.primaryid) DESC"
+) %>%
+  as_tibble()
+
+zantac_reactions
+```
+
+All of the top 10 highest reported events are cancer. Prostate cancer comprises roughly 13% of all Zantac reports.
+
+Let's look at the rest of the data.
+
+```{r}
+all_reactions <- dbGetQuery(
+  con,
+  "SELECT
+    pt,
+    COUNT(DISTINCT primaryid) AS num_reactions,
+    COUNT(DISTINCT primaryid) * 1.0 / (SELECT COUNT(DISTINCT primaryid) FROM reac) AS share_of_total_reactions
+  FROM reac
+  GROUP BY pt
+  ORDER BY COUNT(*) DESC"
+) %>%
+  as_tibble()
+
+all_reactions %>%
+  print(n = 40)
+```
+
+Prostate cancer is the 40th most common occurence, with 5241. For 4762 of these, Zantac must have been a reported medication.
+
+```{r}
+zantac_shares <- zantac_reactions %>%
+  slice_head(n = 40) %>%
+  rename(num_zantac_reactions = num_reactions) %>%
+  left_join(all_reactions, by = "pt") %>%
+  select(!starts_with("share")) %>%
+  mutate(zantac_share = num_zantac_reactions / num_reactions)
+
+zantac_shares
+```
+
+
+
+```{r}
+zantac_shares %>%
+  ggplot(mapping = aes(zantac_share, fct_reorder(pt, zantac_share))) +
+  geom_col(width = 0.8)
+```
+
+For many of these events, Zantac was reported as a medication in the vast majority of reports.
+
+
+
+What drugs was Zantac prescribed with?
+
+```{r}
+zantac_bystanders <- dbGetQuery(
+  con,
+  "SELECT
+    drugname,
+    COUNT(DISTINCT primaryid) AS num_occurrences,
+    COUNT(DISTINCT primaryid) * 1.0 / (SELECT COUNT(DISTINCT primaryid) FROM drug WHERE drugname = 'ZANTAC') AS occurrence_rate
+  FROM drug
+  WHERE
+    NOT drugname = 'ZANTAC'
+    AND primaryid IN (SELECT primaryid FROM drug WHERE drugname = 'ZANTAC')
+  GROUP BY drugname
+  ORDER BY COUNT(DISTINCT primaryid) DESC"
+) %>%
+  as_tibble()
+
+zantac_bystanders
+```
+
+
+
+
+How often was Zantac prescribed alone?
+
+```{r}
+zantac_bystanders <- dbGetQuery(
+  con,
+  "SELECT
+    'ZANTAC ALONE' AS drugname,
+    COUNT(DISTINCT primaryid) AS num_occurrences,
+    COUNT(DISTINCT primaryid) * 1.0 / (SELECT COUNT(DISTINCT primaryid) FROM drug WHERE drugname = 'ZANTAC') AS occurrence_rate
+  FROM drug
+  WHERE
+    drugname = 'ZANTAC'
+    AND primaryid NOT IN (SELECT primaryid FROM drug WHERE NOT drugname = 'ZANTAC')"
+) %>%
+  as_tibble() %>%
+  add_row(zantac_bystanders)
+```
+
+```{r}
+zantac_bystanders %>%
+  slice_head(n = 4) %>%
+  ggplot(mapping = aes(occurrence_rate, fct_reorder(drugname, occurrence_rate))) +
+  geom_col(width = 0.8)
+```
+
+It is almost always prescribed alone.
+The drug that it is most frequently prescribed with is Ranitidine, and it happens roughly 3% of the time in this dataset.
+
+## Wrapping up
+
+Disconnect from the database
+
+```{r}
+dbDisconnect(con, shutdown = TRUE)
+```
