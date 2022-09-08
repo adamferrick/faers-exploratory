@@ -28,3 +28,6 @@ faers_ascii_2022q2.zip:
 
 faers_22q2.duckdb: faers_ascii_2022q2.zip
 	docker run $(VOLUMES) $(PROJECT_NAME) Rscript src/create_database.R
+
+%.html: %.Rmd faers_22q2.duckdb
+	docker run $(VOLUMES) $(PROJECT_NAME) Rscript -e "rmarkdown::render('$<')"
