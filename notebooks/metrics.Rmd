@@ -1,0 +1,137 @@
+---
+title: "Metrics"
+output: html_document
+---
+
+
+## Preliminary steps
+
+Load packages
+
+```{r}
+library(tidyverse)
+```
+
+Connect to the database
+
+```{r}
+con <- DBI::dbConnect(duckdb::duckdb(), dbdir = "../data/faers_22q2.duckdb", read_only = TRUE)
+```
+
+
+```{r}
+dbplyr::src_dbi(con)
+```
+
+Set up table references
+
+```{r}
+demo <- tbl(con, "demo")
+drug <- tbl(con, "drug")
+indi <- tbl(con, "indi")
+outc <- tbl(con, "outc")
+reac <- tbl(con, "reac")
+rpsr <- tbl(con, "rpsr")
+ther <- tbl(con, "ther")
+```
+
+## Analysis
+
+
+
+Get drug-reaction pairs that occur more than 10 times.
+
+```{r}
+pairs <- reac %>%
+  select(pt, primaryid) %>%
+  distinct() %>%
+  inner_join(
+    drug %>% select(drugname, primaryid) %>% distinct(),
+    by = "primaryid"
+  ) %>%
+  group_by(drugname, pt) %>%
+  summarise(count = n()) %>%
+  filter(count > 10)
+
+pairs %>%
+  arrange(desc(count))
+```
+
+
+Get counts of drugs and reactions.
+
+```{r}
+drug_totals <- drug %>%
+  select(drugname, primaryid) %>%
+  distinct() %>%
+  group_by(drugname) %>%
+  summarise(drug_total = n())
+```
+
+```{r}
+reaction_totals <- reac %>%
+  select(pt, primaryid) %>%
+  distinct() %>%
+  group_by(pt) %>%
+  summarise(reaction_total = n())
+```
+
+Compute the total number of observations.
+
+```{r}
+total_obs <- reac %>%
+  select(primaryid) %>%
+  distinct() %>%
+  summarise(count = n()) %>%
+  collect()
+
+total_obs <- total_obs$count[1]
+total_obs
+```
+
+Now create the contingency table.
+
+```{r}
+contingency_tables <- pairs %>%
+  inner_join(drug_totals, by = "drugname") %>%
+  inner_join(reaction_totals, by = "pt") %>%
+  mutate(
+    a = as.numeric(count),
+    b = as.numeric(drug_total - count) + 1,
+    c = as.numeric(reaction_total - count) + 1,
+    d = as.numeric(total_obs - reaction_total - drug_total + count)
+  )
+```
+
+
+Now compute the proportional reporting ratio, reporting odds ratio, and the observed over expected.
+
+```{r}
+metrics <- contingency_tables %>%
+  mutate(
+    prr = (a / (a + b)) / (c / (c + d)),
+    ror = (a / b) / (c / d),
+    ooe = (a / (a + b)) / ((a + c) / (a + b + c + d))
+  )
+```
+
+```{r}
+metrics %>%
+  select(drugname, pt, count, prr, ror, ooe) %>%
+  arrange(desc(count))
+```
+
+```{r}
+metrics %>%
+  select(drugname, pt, count, prr, ror, ooe) %>%
+  arrange(desc(ror))
+```
+
+
+## Wrapping up
+
+Disconnect from the database
+
+```{r}
+DBI::dbDisconnect(con, shutdown = TRUE)
+```
