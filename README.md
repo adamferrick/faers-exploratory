@@ -7,7 +7,7 @@ This repository is for exploratory analysis of the FAERS 2022 Q2 data extract fi
 Clone the repo:
 ```sh
 git clone https://github.com/adamferrick/faers-exploratory
-cd faers-quarterly
+cd faers-exploratory
 ```
 
 Run the analysis pipeline:
