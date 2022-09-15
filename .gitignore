@@ -1,0 +1,4 @@
+notebooks/*.html
+data/*.zip
+data/*.duckdb
+.docker-buildstamp

@@ -10,25 +10,19 @@ git clone https://github.com/adamferrick/faers-exploratory
 cd faers-quarterly
 ```
 
-Build the image:
+Run the analysis pipeline:
 ```sh
-make build
+make all
 ```
-
-Once the image is built, you can run any of the notebooks.
-```sh
-make notebooks/zantac.html
-```
-This will download the data, populate the database, and render the notebook. To view it, simply open the resultant html file in a web browser.
+This will download the data, populate the database, and render the notebooks. To view them, simply open the resultant html files in a web browser.
 
 You can also run the image interactively.
-
 To launch a new container interactively:
 ```sh
 make interactive
 ```
 
-The following command will remove the data and rendered reports from your system:
+The following command will remove the data, image, and rendered reports from your system:
 ```sh
 make clean
 ```
