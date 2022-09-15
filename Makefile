@@ -24,7 +24,7 @@ clean: ## cleans up reports/, data/, notebooks/ and removes the docker image
 	find . -name "*.duckdb" -type f -delete
 	find . -name "*.html" -type f -delete
 	docker rmi faers-exploratory
-	rm .docker-buildstamp
+	find . -name ".docker-buildstamp" -type f -delete
 
 all: notebooks/zantac.html notebooks/metrics.html ## runs the analysis pipeline
 
